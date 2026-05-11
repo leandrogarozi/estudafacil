@@ -50,6 +50,7 @@ export default function ProvaPage() {
   const router = useRouter()
   const id = params.id as string
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const genFileInputRef = useRef<HTMLInputElement>(null)
 
   const [exam, setExam] = useState<Exam | null>(null)
   const [questions, setQuestions] = useState<Question[]>([])
@@ -67,6 +68,16 @@ export default function ProvaPage() {
   const [qError, setQError] = useState("")
   const [uploadingImage, setUploadingImage] = useState(false)
   const [generatingImage, setGeneratingImage] = useState(false)
+
+  // Generate from material modal
+  const [showGenModal, setShowGenModal] = useState(false)
+  const [genImages, setGenImages] = useState<Array<{ base64: string; preview: string }>>([])
+  const [genCount, setGenCount] = useState(10)
+  const [genTypes, setGenTypes] = useState<string[]>(["multiple_choice", "true_false"])
+  const [genDifficulty, setGenDifficulty] = useState("medium")
+  const [generating, setGenerating] = useState(false)
+  const [genError, setGenError] = useState("")
+  const [genSuccess, setGenSuccess] = useState("")
 
   // Share modal
   const [showShare, setShowShare] = useState(false)
@@ -322,6 +333,59 @@ export default function ProvaPage() {
     if (res.ok) setExam((prev) => prev ? { ...prev, status: newStatus } : prev)
   }
 
+  async function handleGenAddImages(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(e.target.files ?? [])
+    const remaining = 5 - genImages.length
+    const toProcess = files.slice(0, remaining)
+    const converted = await Promise.all(
+      toProcess.map(
+        (file) =>
+          new Promise<{ base64: string; preview: string }>((resolve) => {
+            const reader = new FileReader()
+            reader.onload = () =>
+              resolve({ base64: reader.result as string, preview: URL.createObjectURL(file) })
+            reader.readAsDataURL(file)
+          })
+      )
+    )
+    setGenImages((prev) => [...prev, ...converted])
+    if (genFileInputRef.current) genFileInputRef.current.value = ""
+  }
+
+  function toggleGenType(type: string) {
+    setGenTypes((prev) =>
+      prev.includes(type) ? prev.filter((t) => t !== type) : [...prev, type]
+    )
+  }
+
+  async function handleGenerate() {
+    if (genImages.length === 0) { setGenError("Adicione pelo menos uma imagem do material"); return }
+    if (genTypes.length === 0) { setGenError("Selecione pelo menos um tipo de questão"); return }
+    setGenerating(true)
+    setGenError("")
+    setGenSuccess("")
+    try {
+      const res = await fetch(`/api/provas/${id}/gerar-questoes`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ images: genImages.map((i) => i.base64), count: genCount, types: genTypes, difficulty: genDifficulty }),
+      })
+      const data = await res.json()
+      if (!res.ok) { setGenError(data.error ?? "Erro ao gerar questões"); return }
+      setGenSuccess(`${data.added} questões geradas com sucesso!`)
+      setTimeout(() => {
+        setShowGenModal(false)
+        setGenImages([])
+        setGenSuccess("")
+        fetchData()
+      }, 1500)
+    } catch {
+      setGenError("Erro ao gerar questões")
+    } finally {
+      setGenerating(false)
+    }
+  }
+
   if (loading) return <div className="p-8 text-sm text-slate-400">Carregando...</div>
   if (!exam) return null
 
@@ -391,15 +455,26 @@ export default function ProvaPage() {
             </span>
           )}
         </div>
-        <button
-          onClick={openNewQuestion}
-          className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-indigo-700 transition-colors flex items-center gap-2"
-        >
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-          </svg>
-          Adicionar questão
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => { setGenError(""); setShowGenModal(true) }}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium border border-blue-300 bg-blue-50 text-blue-700 hover:bg-blue-100 transition-colors"
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+            </svg>
+            Gerar do material
+          </button>
+          <button
+            onClick={openNewQuestion}
+            className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors flex items-center gap-2"
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            </svg>
+            Adicionar questão
+          </button>
+        </div>
       </div>
 
       {questions.length === 0 && !showForm ? (
@@ -545,6 +620,192 @@ export default function ProvaPage() {
 
               {shareError && <p className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-lg">{shareError}</p>}
               {shareSuccess && <p className="text-sm text-green-600 bg-green-50 px-3 py-2 rounded-lg">{shareSuccess}</p>}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Generate from material modal */}
+      {showGenModal && (
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between p-5 border-b border-slate-100">
+              <div>
+                <h2 className="font-semibold text-slate-900">Gerar questões do material</h2>
+                <p className="text-xs text-slate-400 mt-0.5">A IA vai ler as imagens e criar questões automaticamente</p>
+              </div>
+              <button onClick={() => setShowGenModal(false)} className="text-slate-400 hover:text-slate-600">
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="p-5 space-y-5">
+              {/* Image upload */}
+              <div>
+                <p className="text-sm font-medium text-slate-700 mb-2">
+                  Material de estudo
+                  <span className="text-slate-400 font-normal ml-1">— fotos do livro, caderno ou apostila</span>
+                </p>
+
+                {genImages.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mb-3">
+                    {genImages.map((img, i) => (
+                      <div key={i} className="relative group">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={img.preview} alt={`Material ${i + 1}`} className="w-20 h-20 object-cover rounded-lg border border-slate-200" />
+                        <button
+                          onClick={() => setGenImages((prev) => prev.filter((_, idx) => idx !== i))}
+                          className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-red-500 text-white rounded-full text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {genImages.length < 5 && (
+                  <button
+                    type="button"
+                    onClick={() => genFileInputRef.current?.click()}
+                    className="w-full flex flex-col items-center justify-center gap-2 py-6 border-2 border-dashed border-slate-300 rounded-xl text-slate-500 hover:border-blue-400 hover:text-blue-600 hover:bg-blue-50 transition-all"
+                  >
+                    <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                    <span className="text-sm font-medium">
+                      {genImages.length === 0 ? "Clique para adicionar imagens" : `Adicionar mais (${5 - genImages.length} restantes)`}
+                    </span>
+                    <span className="text-xs text-slate-400">JPG ou PNG · até 5 imagens</span>
+                  </button>
+                )}
+
+                <input
+                  ref={genFileInputRef}
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  multiple
+                  className="hidden"
+                  onChange={handleGenAddImages}
+                />
+              </div>
+
+              {/* Count */}
+              <div>
+                <p className="text-sm font-medium text-slate-700 mb-2">Quantas questões?</p>
+                <div className="flex gap-2">
+                  {[5, 10, 15, 20].map((n) => (
+                    <button
+                      key={n}
+                      type="button"
+                      onClick={() => setGenCount(n)}
+                      className={`flex-1 py-2 rounded-xl text-sm font-semibold border-2 transition-all ${
+                        genCount === n ? "border-blue-500 bg-blue-50 text-blue-700" : "border-slate-200 text-slate-600 hover:border-slate-300"
+                      }`}
+                    >
+                      {n}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Types */}
+              <div>
+                <p className="text-sm font-medium text-slate-700 mb-2">Tipos de questão</p>
+                <div className="grid grid-cols-2 gap-2">
+                  {[
+                    { value: "multiple_choice", label: "Múltipla escolha" },
+                    { value: "true_false", label: "Verdadeiro / Falso" },
+                    { value: "essay", label: "Dissertativa" },
+                    { value: "fill_blank", label: "Completar lacuna" },
+                  ].map((t) => (
+                    <button
+                      key={t.value}
+                      type="button"
+                      onClick={() => toggleGenType(t.value)}
+                      className={`flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm border-2 transition-all text-left ${
+                        genTypes.includes(t.value) ? "border-blue-500 bg-blue-50 text-blue-700" : "border-slate-200 text-slate-600 hover:border-slate-300"
+                      }`}
+                    >
+                      <div className={`w-4 h-4 rounded border-2 flex items-center justify-center flex-shrink-0 ${genTypes.includes(t.value) ? "border-blue-500 bg-blue-500" : "border-slate-300"}`}>
+                        {genTypes.includes(t.value) && (
+                          <svg className="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                          </svg>
+                        )}
+                      </div>
+                      {t.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Difficulty */}
+              <div>
+                <p className="text-sm font-medium text-slate-700 mb-2">Dificuldade</p>
+                <div className="flex gap-2">
+                  {[
+                    { value: "easy", label: "Fácil" },
+                    { value: "medium", label: "Médio" },
+                    { value: "hard", label: "Difícil" },
+                  ].map((d) => (
+                    <button
+                      key={d.value}
+                      type="button"
+                      onClick={() => setGenDifficulty(d.value)}
+                      className={`flex-1 py-2 rounded-xl text-sm font-semibold border-2 transition-all ${
+                        genDifficulty === d.value ? "border-blue-500 bg-blue-50 text-blue-700" : "border-slate-200 text-slate-600 hover:border-slate-300"
+                      }`}
+                    >
+                      {d.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {genError && <p className="text-sm text-red-600 bg-red-50 px-4 py-3 rounded-xl">{genError}</p>}
+              {genSuccess && (
+                <div className="flex items-center gap-2 text-sm text-green-700 bg-green-50 px-4 py-3 rounded-xl">
+                  <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                  {genSuccess}
+                </div>
+              )}
+
+              <div className="flex gap-3 pt-1">
+                <button
+                  onClick={handleGenerate}
+                  disabled={generating || genImages.length === 0}
+                  className="flex-1 bg-blue-600 text-white py-2.5 rounded-xl text-sm font-semibold hover:bg-blue-700 disabled:opacity-60 transition-colors flex items-center justify-center gap-2"
+                >
+                  {generating ? (
+                    <>
+                      <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+                      </svg>
+                      Gerando questões...
+                    </>
+                  ) : (
+                    <>
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                      </svg>
+                      Gerar {genCount} questões com IA
+                    </>
+                  )}
+                </button>
+                <button
+                  onClick={() => setShowGenModal(false)}
+                  disabled={generating}
+                  className="px-4 py-2.5 rounded-xl text-sm font-medium text-slate-600 hover:bg-slate-100 transition-colors disabled:opacity-50"
+                >
+                  Cancelar
+                </button>
+              </div>
             </div>
           </div>
         </div>
