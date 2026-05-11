@@ -31,6 +31,9 @@ export const students = pgTable(
     schoolYear: integer("school_year").notNull(),
     class: varchar("class", { length: 50 }),
     photoUrl: text("photo_url"),
+    schoolName: varchar("school_name", { length: 255 }),
+    schoolCep: varchar("school_cep", { length: 9 }),
+    schoolAddress: text("school_address"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
   (t) => [index("students_user_id_idx").on(t.userId)]

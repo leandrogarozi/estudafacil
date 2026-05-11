@@ -17,6 +17,9 @@ export const studentSchema = z.object({
   schoolYear: z.coerce.number().int().min(2020).max(2099),
   class: z.string().optional(),
   photoUrl: z.string().url().optional().or(z.literal("")),
+  schoolName: z.string().optional(),
+  schoolCep: z.string().optional(),
+  schoolAddress: z.string().optional(),
 })
 
 export const examSchema = z.object({
