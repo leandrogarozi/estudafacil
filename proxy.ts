@@ -5,7 +5,7 @@ export const proxy = auth((req) => {
   const isLoggedIn = !!req.auth
   const { pathname } = req.nextUrl
 
-  const publicPaths = ["/login", "/register"]
+  const publicPaths = ["/login", "/register", "/p/"]
   const isPublic = publicPaths.some((p) => pathname.startsWith(p))
 
   if (!isLoggedIn && !isPublic) {

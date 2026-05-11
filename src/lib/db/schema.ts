@@ -56,6 +56,7 @@ export const exams = pgTable(
     maxScore: integer("max_score").notNull().default(10),
     useIllustrations: boolean("use_illustrations").notNull().default(false),
     status: varchar("status", { length: 20 }).notNull().default("draft"),
+    shareToken: varchar("share_token", { length: 20 }).unique(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
   (t) => [index("exams_user_id_idx").on(t.userId)]
@@ -147,6 +148,23 @@ export const examShares = pgTable(
   ]
 )
 
+export const examAttempts = pgTable(
+  "exam_attempts",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    examId: uuid("exam_id")
+      .notNull()
+      .references(() => exams.id, { onDelete: "cascade" }),
+    studentName: varchar("student_name", { length: 255 }).notNull(),
+    answers: jsonb("answers").$type<Record<string, string>>().notNull().default({}),
+    score: integer("score").notNull().default(0),
+    maxScore: integer("max_score").notNull().default(0),
+    startedAt: timestamp("started_at").defaultNow().notNull(),
+    completedAt: timestamp("completed_at"),
+  },
+  (t) => [index("exam_attempts_exam_id_idx").on(t.examId)]
+)
+
 export type User = typeof users.$inferSelect
 export type Student = typeof students.$inferSelect
 export type Exam = typeof exams.$inferSelect
@@ -160,3 +178,5 @@ export type NewQuestion = typeof questions.$inferInsert
 export type NewClass = typeof classes.$inferInsert
 export type NewClassMember = typeof classMembers.$inferInsert
 export type NewExamShare = typeof examShares.$inferInsert
+export type ExamAttempt = typeof examAttempts.$inferSelect
+export type NewExamAttempt = typeof examAttempts.$inferInsert

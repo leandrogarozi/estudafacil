@@ -69,6 +69,12 @@ export default function ProvaPage() {
   const [uploadingImage, setUploadingImage] = useState(false)
   const [generatingImage, setGeneratingImage] = useState(false)
 
+  // Share link
+  const [shareToken, setShareToken] = useState<string | null>(null)
+  const [linkLoading, setLinkLoading] = useState(false)
+  const [showLinkModal, setShowLinkModal] = useState(false)
+  const [linkCopied, setLinkCopied] = useState(false)
+
   // Generate from material modal
   const [showGenModal, setShowGenModal] = useState(false)
   const [genImages, setGenImages] = useState<Array<{ base64: string; preview: string }>>([])
@@ -333,6 +339,30 @@ export default function ProvaPage() {
     if (res.ok) setExam((prev) => prev ? { ...prev, status: newStatus } : prev)
   }
 
+  async function handleGenerateLink() {
+    setLinkLoading(true)
+    try {
+      const res = await fetch(`/api/provas/${id}/link`, { method: "POST" })
+      const data = await res.json()
+      if (res.ok) { setShareToken(data.token); setShowLinkModal(true) }
+    } finally {
+      setLinkLoading(false)
+    }
+  }
+
+  async function handleRevokeLink() {
+    await fetch(`/api/provas/${id}/link`, { method: "DELETE" })
+    setShareToken(null)
+    setShowLinkModal(false)
+  }
+
+  function copyLink() {
+    const url = `${window.location.origin}/p/${shareToken}`
+    navigator.clipboard.writeText(url)
+    setLinkCopied(true)
+    setTimeout(() => setLinkCopied(false), 2000)
+  }
+
   async function handleGenAddImages(e: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(e.target.files ?? [])
     const remaining = 5 - genImages.length
@@ -419,6 +449,25 @@ export default function ProvaPage() {
         </div>
 
         <div className="flex items-center gap-2">
+          <Link
+            href={`/provas/${id}/resultados`}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium border border-slate-300 text-slate-700 hover:bg-slate-50 transition-colors"
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+            </svg>
+            Resultados
+          </Link>
+          <button
+            onClick={handleGenerateLink}
+            disabled={linkLoading}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium border border-emerald-300 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 disabled:opacity-60 transition-colors"
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+            </svg>
+            {linkLoading ? "..." : "Gerar link"}
+          </button>
           <button
             onClick={openShare}
             className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium border border-slate-300 text-slate-700 hover:bg-slate-50 transition-colors"
@@ -621,6 +670,52 @@ export default function ProvaPage() {
               {shareError && <p className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-lg">{shareError}</p>}
               {shareSuccess && <p className="text-sm text-green-600 bg-green-50 px-3 py-2 rounded-lg">{shareSuccess}</p>}
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Link modal */}
+      {showLinkModal && shareToken && (
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="font-semibold text-slate-900">Link da prova online</h2>
+              <button onClick={() => setShowLinkModal(false)} className="text-slate-400 hover:text-slate-600">
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <p className="text-sm text-slate-500 mb-4">
+              Compartilhe este link com o aluno. Ele pode responder sem precisar criar conta e refazer quantas vezes quiser.
+            </p>
+
+            <div className="flex gap-2 mb-4">
+              <div className="flex-1 px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-600 truncate">
+                {typeof window !== "undefined" ? `${window.location.origin}/p/${shareToken}` : `/p/${shareToken}`}
+              </div>
+              <button
+                onClick={copyLink}
+                className={`px-4 py-2.5 rounded-xl text-sm font-semibold transition-colors ${linkCopied ? "bg-green-100 text-green-700" : "bg-blue-600 text-white hover:bg-blue-700"}`}
+              >
+                {linkCopied ? "Copiado!" : "Copiar"}
+              </button>
+            </div>
+
+            <div className="flex items-center gap-2 p-3 bg-amber-50 rounded-xl mb-4">
+              <svg className="w-4 h-4 text-amber-600 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <p className="text-xs text-amber-700">Qualquer pessoa com este link pode acessar a prova.</p>
+            </div>
+
+            <button
+              onClick={handleRevokeLink}
+              className="text-xs text-red-500 hover:text-red-700 hover:underline"
+            >
+              Desativar link
+            </button>
           </div>
         </div>
       )}
