@@ -15,6 +15,7 @@ export default async function DashboardLayout({
       <NavSidebar
         userName={session.user?.name ?? "Usuário"}
         userEmail={session.user?.email ?? undefined}
+        userRole={session.user?.role}
       />
       <main className="flex-1 overflow-y-auto bg-slate-50">
         {children}

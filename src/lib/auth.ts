@@ -31,7 +31,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         )
         if (!passwordMatch) return null
 
-        return { id: user.id, email: user.email, name: user.name }
+        return { id: user.id, email: user.email, name: user.name, role: user.role ?? undefined }
       },
     }),
   ],
@@ -41,11 +41,15 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   session: { strategy: "jwt" },
   callbacks: {
     jwt({ token, user }) {
-      if (user) token.id = user.id
+      if (user) {
+        token.id = user.id
+        token.role = (user as { role?: string }).role
+      }
       return token
     },
     session({ session, token }) {
       session.user.id = token.id as string
+      session.user.role = token.role as string | undefined
       return session
     },
   },

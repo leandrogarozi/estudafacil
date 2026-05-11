@@ -17,7 +17,7 @@ export async function POST(req: Request) {
       )
     }
 
-    const { name, email, password } = parsed.data
+    const { name, email, password, role } = parsed.data
 
     const [existing] = await db
       .select({ id: users.id })
@@ -36,7 +36,7 @@ export async function POST(req: Request) {
 
     const [user] = await db
       .insert(users)
-      .values({ name, email, passwordHash })
+      .values({ name, email, passwordHash, role: role ?? null })
       .returning({ id: users.id, email: users.email, name: users.name })
 
     return NextResponse.json(user, { status: 201 })

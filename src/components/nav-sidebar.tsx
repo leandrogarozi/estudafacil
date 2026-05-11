@@ -43,13 +43,20 @@ const navItems = [
   },
 ]
 
+const ROLE_LABEL: Record<string, { label: string; color: string }> = {
+  teacher: { label: "Professora", color: "bg-violet-100 text-violet-700" },
+  parent: { label: "Pai / Mãe", color: "bg-amber-100 text-amber-700" },
+}
+
 interface NavSidebarProps {
   userName: string
   userEmail?: string
+  userRole?: string
 }
 
-export function NavSidebar({ userName, userEmail }: NavSidebarProps) {
+export function NavSidebar({ userName, userEmail, userRole }: NavSidebarProps) {
   const pathname = usePathname()
+  const roleInfo = userRole ? ROLE_LABEL[userRole] : null
 
   return (
     <aside className="w-64 flex-shrink-0 bg-white flex flex-col" style={{ boxShadow: "2px 0 20px rgba(0,0,0,0.05)" }}>
@@ -62,7 +69,7 @@ export function NavSidebar({ userName, userEmail }: NavSidebarProps) {
             </svg>
           </div>
           <div>
-            <p className="font-bold text-slate-900 leading-none">ProvaApp</p>
+            <p className="font-bold text-slate-900 leading-none">EstudaFácil</p>
             <p className="text-[11px] text-slate-400 mt-0.5">para professores e pais</p>
           </div>
         </div>
@@ -94,17 +101,31 @@ export function NavSidebar({ userName, userEmail }: NavSidebarProps) {
 
       {/* User */}
       <div className="px-3 pb-4 border-t border-slate-100 pt-3">
-        <div className="flex items-center gap-3 px-3 py-2 mb-1 rounded-xl hover:bg-slate-50 transition-colors">
+        <Link
+          href="/perfil"
+          className="flex items-center gap-3 px-3 py-2 mb-1 rounded-xl hover:bg-slate-50 transition-colors group"
+        >
           <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
             <span className="text-xs font-bold text-blue-700">
               {userName.charAt(0).toUpperCase()}
             </span>
           </div>
           <div className="min-w-0 flex-1">
-            <p className="text-sm font-medium text-slate-800 truncate">{userName}</p>
-            {userEmail && <p className="text-[11px] text-slate-400 truncate">{userEmail}</p>}
+            <p className="text-sm font-medium text-slate-800 truncate group-hover:text-blue-600 transition-colors">
+              {userName}
+            </p>
+            {roleInfo ? (
+              <span className={`inline-block text-[10px] font-semibold px-1.5 py-0.5 rounded-full mt-0.5 ${roleInfo.color}`}>
+                {roleInfo.label}
+              </span>
+            ) : userEmail ? (
+              <p className="text-[11px] text-slate-400 truncate">{userEmail}</p>
+            ) : null}
           </div>
-        </div>
+          <svg className="w-3.5 h-3.5 text-slate-300 group-hover:text-slate-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+          </svg>
+        </Link>
         <button
           onClick={() => signOut({ callbackUrl: "/login" })}
           className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-sm text-slate-500 hover:bg-red-50 hover:text-red-600 transition-colors"

@@ -9,6 +9,12 @@ export const registerSchema = z.object({
   name: z.string().min(2, "Nome deve ter pelo menos 2 caracteres"),
   email: z.string().email("Email inválido"),
   password: z.string().min(6, "Senha deve ter pelo menos 6 caracteres"),
+  role: z.enum(["teacher", "parent"]).optional(),
+})
+
+export const profileSchema = z.object({
+  name: z.string().min(2, "Nome deve ter pelo menos 2 caracteres"),
+  role: z.enum(["teacher", "parent"]).nullable().optional(),
 })
 
 export const studentSchema = z.object({
@@ -56,6 +62,7 @@ export const classSchema = z.object({
 export type ClassInput = z.infer<typeof classSchema>
 export type LoginInput = z.infer<typeof loginSchema>
 export type RegisterInput = z.infer<typeof registerSchema>
+export type ProfileInput = z.infer<typeof profileSchema>
 export type StudentInput = z.infer<typeof studentSchema>
 export type ExamInput = z.infer<typeof examSchema>
 export type QuestionInput = z.infer<typeof questionSchema>
